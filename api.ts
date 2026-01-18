@@ -1,19 +1,16 @@
 
-import { Task, TaskStatus } from './types';
-
 // Fallback хранилище в оперативной памяти
-const inMemoryDb: Record<string, string> = {};
+const inMemoryDb = {};
 
 export const safeStorage = {
-  getItem: (key: string): string | null => {
+  getItem: (key) => {
     try {
       return localStorage.getItem(key);
     } catch (e) {
-      console.warn('Storage access denied, using memory');
       return inMemoryDb[key] || null;
     }
   },
-  setItem: (key: string, value: string): void => {
+  setItem: (key, value) => {
     try {
       localStorage.setItem(key, value);
     } catch (e) {
@@ -22,7 +19,7 @@ export const safeStorage = {
   }
 };
 
-const getLocalTasks = (): Task[] => {
+const getLocalTasks = () => {
   const saved = safeStorage.getItem('tma_tasks');
   if (!saved) return [];
   try {
@@ -32,14 +29,13 @@ const getLocalTasks = (): Task[] => {
   }
 };
 
-const saveLocalTasks = (tasks: Task[]) => {
+const saveLocalTasks = (tasks) => {
   safeStorage.setItem('tma_tasks', JSON.stringify(tasks));
 };
 
 export const api = {
-  getTasks: async (userId: string): Promise<Task[]> => {
+  getTasks: async (userId) => {
     try {
-      // Имитируем запрос к API
       const response = await fetch(`/api/tasks?userId=${userId}`);
       if (!response.ok) throw new Error();
       const data = await response.json();
@@ -50,8 +46,8 @@ export const api = {
     }
   },
   
-  createTask: async (task: Omit<Task, 'id' | 'createdAt'>): Promise<Task> => {
-    const newTask: Task = {
+  createTask: async (task) => {
+    const newTask = {
       ...task,
       id: Math.random().toString(36).substring(2, 11),
       createdAt: Date.now()
@@ -67,12 +63,11 @@ export const api = {
     } catch (e) {}
 
     const tasks = getLocalTasks();
-    const updated = [newTask, ...tasks];
-    saveLocalTasks(updated);
+    saveLocalTasks([newTask, ...tasks]);
     return newTask;
   },
 
-  updateTask: async (id: string, updates: Partial<Task>): Promise<Task> => {
+  updateTask: async (id, updates) => {
     try {
       const response = await fetch(`/api/tasks/${id}`, {
         method: 'PATCH',
@@ -92,12 +87,18 @@ export const api = {
     throw new Error('Not found');
   },
 
-  deleteTask: async (id: string): Promise<void> => {
+  // deleteTask implementation added to fix the error in App.tsx
+  deleteTask: async (id) => {
     try {
-      await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/tasks/${id}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) return true;
     } catch (e) {}
-    
+
     const tasks = getLocalTasks();
-    saveLocalTasks(tasks.filter(t => t.id !== id));
+    const filtered = tasks.filter(t => t.id !== id);
+    saveLocalTasks(filtered);
+    return true;
   }
 };
