@@ -12,8 +12,7 @@ import TabBar from './components/TabBar.tsx';
 const html = htm.bind(React.createElement);
 
 const App = () => {
-  // Using standard window access with casting to any to bypass property existence check in TypeScript
-  // Fix: Property 'Telegram' does not exist on type 'Window & typeof globalThis'
+  // Access window.Telegram with casting to any to bypass property existence check in TypeScript
   const tg = (window as any).Telegram ? (window as any).Telegram.WebApp : null;
   
   const [tasks, setTasks] = useState([]);
@@ -56,7 +55,7 @@ const App = () => {
   }, [theme, tg]);
 
   const onSaveTask = async (data) => {
-    if ((currentView === 'edit' || editingTaskId) && editingTaskId) {
+    if (editingTaskId) {
       await api.updateTask(editingTaskId, data);
     } else {
       await api.createTask({ ...data, userId, userName });

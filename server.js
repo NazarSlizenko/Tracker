@@ -13,14 +13,12 @@ const __dirname = path.dirname(__filename);
 
 app.use(express.json());
 
-// Настройка пула подключений к PostgreSQL
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/tma_db',
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// --- API Эндпоинты ---
-
+// API
 app.get('/api/tasks', async (req, res) => {
   try {
     const { userId } = req.query;
@@ -35,7 +33,6 @@ app.get('/api/tasks', async (req, res) => {
       createdAt: parseInt(row.created_at)
     })));
   } catch (err) {
-    console.error('Database error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -49,7 +46,6 @@ app.post('/api/tasks', async (req, res) => {
     );
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Insert error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -72,7 +68,6 @@ app.patch('/api/tasks/:id', async (req, res) => {
     );
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Update error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -82,17 +77,11 @@ app.delete('/api/tasks/:id', async (req, res) => {
     await pool.query('DELETE FROM tasks WHERE id = $1', [req.params.id]);
     res.sendStatus(204);
   } catch (err) {
-    console.error('Delete error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// --- Раздача статики ---
-
-const distPath = path.join(__dirname, 'dist');
-const publicPath = __dirname;
-
-// КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Настройка MIME-типов для браузера
+// Статика с правильными MIME-типами
 const staticOptions = {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.tsx') || filePath.endsWith('.ts')) {
@@ -101,25 +90,14 @@ const staticOptions = {
   }
 };
 
-if (fs.existsSync(distPath)) {
-    app.use(express.static(distPath, staticOptions));
-}
-app.use(express.static(publicPath, staticOptions));
+app.use(express.static(__dirname, staticOptions));
 
-app.get('*any', (req, res) => {
-    if (req.url.startsWith('/api/')) {
-        return res.status(404).json({ error: 'API route not found' });
-    }
-
-    let indexPath = path.join(publicPath, 'index.html');
-    if (fs.existsSync(path.join(distPath, 'index.html'))) {
-        indexPath = path.join(distPath, 'index.html');
-    }
-
-    res.sendFile(indexPath);
+app.get('*', (req, res) => {
+  if (req.url.startsWith('/api/')) return res.status(404).end();
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Сервер запущен на порту ${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });
