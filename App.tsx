@@ -12,7 +12,8 @@ import TabBar from './components/TabBar.tsx';
 const html = htm.bind(React.createElement);
 
 const App = () => {
-  // Casting window to any to access Telegram WebApp property to avoid TS errors
+  // Using standard window access with casting to any to bypass property existence check in TypeScript
+  // Fix: Property 'Telegram' does not exist on type 'Window & typeof globalThis'
   const tg = (window as any).Telegram ? (window as any).Telegram.WebApp : null;
   
   const [tasks, setTasks] = useState([]);

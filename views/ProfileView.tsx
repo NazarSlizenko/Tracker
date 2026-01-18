@@ -5,7 +5,8 @@ import htm from 'htm';
 const html = htm.bind(React.createElement);
 
 const ProfileView = ({ theme, setTheme }) => {
-  // Casting window to any to access Telegram WebApp property to avoid TS errors
+  // Access window.Telegram with casting to any to bypass property existence check in TypeScript
+  // Fix: Property 'Telegram' does not exist on type 'Window & typeof globalThis'
   const tg = (window as any).Telegram?.WebApp;
   const user = tg?.initDataUnsafe?.user || {
     first_name: 'Пользователь',
