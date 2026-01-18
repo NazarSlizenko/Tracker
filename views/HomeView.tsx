@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Task, TaskStatus } from '../types';
-import TaskCard from '../components/TaskCard';
+import { Task, TaskStatus } from '../types.ts';
+import TaskCard from '../components/TaskCard.tsx';
 
 interface HomeViewProps {
   tasks: Task[];

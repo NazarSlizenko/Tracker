@@ -87,21 +87,26 @@ app.delete('/api/tasks/:id', async (req, res) => {
   }
 });
 
-// --- Раздача статики и SPA Роутинг ---
+// --- Раздача статики ---
 
 const distPath = path.join(__dirname, 'dist');
 const publicPath = __dirname;
 
-// Раздаем статические файлы
-if (fs.existsSync(distPath)) {
-    app.use(express.static(distPath));
-}
-app.use(express.static(publicPath));
+// КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Настройка MIME-типов для браузера
+const staticOptions = {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.tsx') || filePath.endsWith('.ts')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    }
+  }
+};
 
-// КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ ДЛЯ EXPRESS 5: 
-// Используем '*any' вместо '*', так как в Node 25/Express 5 одиночная звезда вызывает PathError
+if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath, staticOptions));
+}
+app.use(express.static(publicPath, staticOptions));
+
 app.get('*any', (req, res) => {
-    // Игнорируем API, чтобы не отдавать HTML на битые ссылки API
     if (req.url.startsWith('/api/')) {
         return res.status(404).json({ error: 'API route not found' });
     }

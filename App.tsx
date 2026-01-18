@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Task, TaskStatus, ViewType, ThemeType } from './types';
-import { api } from './api';
-import HomeView from './views/HomeView';
-import TaskFormView from './views/TaskFormView';
-import ProfileView from './views/ProfileView';
-import StatsView from './views/StatsView';
-import TabBar from './components/TabBar';
+import { Task, TaskStatus, ViewType, ThemeType } from './types.ts';
+import { api } from './api.ts';
+import HomeView from './views/HomeView.tsx';
+import TaskFormView from './views/TaskFormView.tsx';
+import ProfileView from './views/ProfileView.tsx';
+import StatsView from './views/StatsView.tsx';
+import TabBar from './components/TabBar.tsx';
 
 // Доступ к Telegram SDK
 declare global {
@@ -31,7 +31,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (tg) {
       tg.ready();
-      tg.expand(); // Разворачиваем на всю высоту
+      tg.expand();
       tg.enableClosingConfirmation();
     }
   }, [tg]);
@@ -54,7 +54,6 @@ const App: React.FC = () => {
     else root.classList.remove('dark');
     localStorage.setItem('theme', theme);
     
-    // Сообщаем Telegram об изменении цвета хедера
     if (tg) {
       tg.setHeaderColor(isDark ? '#2c2c2e' : '#ffffff');
     }
