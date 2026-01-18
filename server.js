@@ -13,19 +13,20 @@ const __dirname = path.dirname(__filename);
 
 app.use(express.json());
 
-// Настройка пула подключений
+// Настройка пула подключений к PostgreSQL
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/tma_db',
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// API Эндпоинты
+// --- API Эндпоинты ---
+
 app.get('/api/tasks', async (req, res) => {
   try {
     const { userId } = req.query;
     const result = await pool.query('SELECT * FROM tasks WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
     res.json(result.rows.map(row => ({
-      id: row.id,
+      id: row.id.toString(),
       title: row.title,
       description: row.description,
       status: row.status,
@@ -86,24 +87,37 @@ app.delete('/api/tasks/:id', async (req, res) => {
   }
 });
 
-// Раздача статики
-const distPath = path.join(__dirname, 'dist');
-const indexPath = path.join(__dirname, 'index.html');
+// --- Раздача статики и SPA Роутинг ---
 
+// ВАЖНО: Определяем пути к папкам
+const distPath = path.join(__dirname, 'dist');
+const publicPath = __dirname;
+
+// Сначала раздаем файлы из dist (если есть) или из корня
 if (fs.existsSync(distPath)) {
     app.use(express.static(distPath));
-} else {
-    // Если папки dist нет (режим разработки или прямой деплой без сборщика), раздаем корень
-    app.use(express.static(__dirname));
 }
+app.use(express.static(publicPath));
 
-// FIX для Express 5: используем "/*" вместо "*" для catch-all роута
-app.get('/*', (req, res) => {
-  const targetFile = fs.existsSync(path.join(distPath, 'index.html')) 
-    ? path.join(distPath, 'index.html') 
-    : indexPath;
-  res.sendFile(targetFile);
+// FIX для Express 5: Используем именованный параметр splat для перехвата всех путей
+// Это решает ошибку "Missing parameter name at index X"
+app.get('*', (req, res) => {
+    // Не перехватываем API запросы, которые могли проскочить
+    if (req.url.startsWith('/api/')) {
+        return res.status(404).json({ error: 'API route not found' });
+    }
+
+    let indexPath = path.join(publicPath, 'index.html');
+    if (fs.existsSync(path.join(distPath, 'index.html'))) {
+        indexPath = path.join(distPath, 'index.html');
+    }
+
+    res.sendFile(indexPath);
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server is running!`);
+    console.log(`📡 Port: ${PORT}`);
+    console.log(`📁 Directory: ${__dirname}`);
+});
