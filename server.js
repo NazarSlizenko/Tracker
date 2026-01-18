@@ -3,20 +3,19 @@ import express from 'express';
 import pkg from 'pg';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const { Pool } = pkg;
 const app = express();
 
-// В ES-модулях нет встроенных __dirname и __filename, создаем их сами
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 app.use(express.json());
 
-// Настройка подключения к PostgreSQL
+// Настройка пула подключений
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/tma_db',
-  // Для Render/Heroku часто требуется SSL
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
@@ -35,7 +34,7 @@ app.get('/api/tasks', async (req, res) => {
       createdAt: parseInt(row.created_at)
     })));
   } catch (err) {
-    console.error(err);
+    console.error('Database error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -49,7 +48,7 @@ app.post('/api/tasks', async (req, res) => {
     );
     res.json(result.rows[0]);
   } catch (err) {
-    console.error(err);
+    console.error('Insert error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -58,8 +57,6 @@ app.patch('/api/tasks/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
-    
-    // Динамическое формирование SQL запроса
     const keys = Object.keys(updates);
     if (keys.length === 0) return res.status(400).json({ error: 'No updates provided' });
 
@@ -72,10 +69,9 @@ app.patch('/api/tasks/:id', async (req, res) => {
       `UPDATE tasks SET ${setClause} WHERE id = $${values.length} RETURNING *`,
       values
     );
-    
     res.json(result.rows[0]);
   } catch (err) {
-    console.error(err);
+    console.error('Update error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -85,18 +81,28 @@ app.delete('/api/tasks/:id', async (req, res) => {
     await pool.query('DELETE FROM tasks WHERE id = $1', [req.params.id]);
     res.sendStatus(204);
   } catch (err) {
-    console.error(err);
+    console.error('Delete error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// Раздача статики (фронтенда)
-// Убедитесь, что папка сборки называется 'dist' или измените путь ниже
-app.use(express.static(path.join(__dirname, 'dist')));
+// Раздача статики
+const distPath = path.join(__dirname, 'dist');
+const indexPath = path.join(__dirname, 'index.html');
 
-// Все остальные запросы направляем на index.html (для SPA роутинга)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist/index.html'));
+if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+} else {
+    // Если папки dist нет (режим разработки или прямой деплой без сборщика), раздаем корень
+    app.use(express.static(__dirname));
+}
+
+// FIX для Express 5: используем "/*" вместо "*" для catch-all роута
+app.get('/*', (req, res) => {
+  const targetFile = fs.existsSync(path.join(distPath, 'index.html')) 
+    ? path.join(distPath, 'index.html') 
+    : indexPath;
+  res.sendFile(targetFile);
 });
 
 const PORT = process.env.PORT || 3000;
