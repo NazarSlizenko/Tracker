@@ -1,30 +1,35 @@
 
 import { Task, TaskStatus } from './types';
 
-const API_URL = '/api';
+// Fallback хранилище в оперативной памяти
+const inMemoryDb: Record<string, string> = {};
 
-// Надежная обертка над хранилищем: если localStorage заблокирован, используем память
-const memoryStorage: Record<string, string> = {};
 export const safeStorage = {
   getItem: (key: string): string | null => {
     try {
       return localStorage.getItem(key);
     } catch (e) {
-      return memoryStorage[key] || null;
+      console.warn('Storage access denied, using memory');
+      return inMemoryDb[key] || null;
     }
   },
   setItem: (key: string, value: string): void => {
     try {
       localStorage.setItem(key, value);
     } catch (e) {
-      memoryStorage[key] = value;
+      inMemoryDb[key] = value;
     }
   }
 };
 
 const getLocalTasks = (): Task[] => {
   const saved = safeStorage.getItem('tma_tasks');
-  return saved ? JSON.parse(saved) : [];
+  if (!saved) return [];
+  try {
+    return JSON.parse(saved);
+  } catch {
+    return [];
+  }
 };
 
 const saveLocalTasks = (tasks: Task[]) => {
@@ -34,20 +39,26 @@ const saveLocalTasks = (tasks: Task[]) => {
 export const api = {
   getTasks: async (userId: string): Promise<Task[]> => {
     try {
-      const response = await fetch(`${API_URL}/tasks?userId=${userId}`);
-      if (!response.ok) throw new Error('Server unreachable');
+      // Имитируем запрос к API
+      const response = await fetch(`/api/tasks?userId=${userId}`);
+      if (!response.ok) throw new Error();
       const data = await response.json();
       saveLocalTasks(data);
       return data;
     } catch (e) {
-      console.warn('API Offline: Using local data');
       return getLocalTasks();
     }
   },
   
   createTask: async (task: Omit<Task, 'id' | 'createdAt'>): Promise<Task> => {
+    const newTask: Task = {
+      ...task,
+      id: Math.random().toString(36).substring(2, 11),
+      createdAt: Date.now()
+    };
+    
     try {
-      const response = await fetch(`${API_URL}/tasks`, {
+      const response = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(task)
@@ -55,19 +66,15 @@ export const api = {
       if (response.ok) return await response.json();
     } catch (e) {}
 
-    const newTask: Task = {
-      ...task,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: Date.now(),
-    };
     const tasks = getLocalTasks();
-    saveLocalTasks([newTask, ...tasks]);
+    const updated = [newTask, ...tasks];
+    saveLocalTasks(updated);
     return newTask;
   },
 
   updateTask: async (id: string, updates: Partial<Task>): Promise<Task> => {
     try {
-      const response = await fetch(`${API_URL}/tasks/${id}`, {
+      const response = await fetch(`/api/tasks/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
@@ -76,21 +83,20 @@ export const api = {
     } catch (e) {}
 
     const tasks = getLocalTasks();
-    const index = tasks.findIndex(t => t.id === id);
-    if (index > -1) {
-      tasks[index] = { ...tasks[index], ...updates };
+    const idx = tasks.findIndex(t => t.id === id);
+    if (idx > -1) {
+      tasks[idx] = { ...tasks[idx], ...updates };
       saveLocalTasks(tasks);
-      return tasks[index];
+      return tasks[idx];
     }
-    throw new Error('Task not found');
+    throw new Error('Not found');
   },
 
   deleteTask: async (id: string): Promise<void> => {
     try {
-      const response = await fetch(`${API_URL}/tasks/${id}`, { method: 'DELETE' });
-      if (response.ok) return;
+      await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
     } catch (e) {}
-
+    
     const tasks = getLocalTasks();
     saveLocalTasks(tasks.filter(t => t.id !== id));
   }

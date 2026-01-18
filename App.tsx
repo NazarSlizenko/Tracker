@@ -9,14 +9,9 @@ import StatsView from './views/StatsView.tsx';
 import TabBar from './components/TabBar.tsx';
 
 const App: React.FC = () => {
-  // Используем обращение через квадратные скобки для максимальной совместимости с Babel Standalone
-  const tg = window['Telegram'] ? window['Telegram'].WebApp : null;
+  // Получаем объект WebApp максимально безопасно
+  const tg = (window as any).Telegram?.WebApp || null;
   
-  // Безопасное извлечение данных пользователя
-  const user = tg?.initDataUnsafe?.user;
-  const userId = user?.id ? user.id.toString() : 'dev_user';
-  const userName = user?.first_name || 'Алексей';
-
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState<ViewType>('home');
@@ -29,11 +24,14 @@ const App: React.FC = () => {
   
   const [filter, setFilter] = useState<'all' | TaskStatus>('all');
 
+  // Данные пользователя
+  const userId = tg?.initDataUnsafe?.user?.id?.toString() || 'dev_user';
+  const userName = tg?.initDataUnsafe?.user?.first_name || 'Алексей';
+
   useEffect(() => {
     if (tg) {
       tg.ready();
       tg.expand();
-      tg.enableClosingConfirmation();
     }
   }, [tg]);
 
@@ -49,7 +47,7 @@ const App: React.FC = () => {
   }, [loadTasks]);
 
   useEffect(() => {
-    const root = window.document.documentElement;
+    const root = document.documentElement;
     const isDark = theme === 'dark' || (theme === 'system' && (tg?.colorScheme === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches));
     
     if (isDark) root.classList.add('dark');
@@ -62,21 +60,14 @@ const App: React.FC = () => {
     }
   }, [theme, tg]);
 
-  const addTask = async (data: any) => {
-    await api.createTask({ ...data, userId, userName });
+  const onSaveTask = async (data: any) => {
+    if (currentView === 'edit' && editingTaskId) {
+      await api.updateTask(editingTaskId, data);
+    } else {
+      await api.createTask({ ...data, userId, userName });
+    }
     await loadTasks();
     setCurrentView('home');
-  };
-
-  const updateTask = async (id: string, updates: any) => {
-    await api.updateTask(id, updates);
-    await loadTasks();
-    setCurrentView('home');
-  };
-
-  const deleteTask = async (id: string) => {
-    await api.deleteTask(id);
-    await loadTasks();
   };
 
   const filteredTasks = useMemo(() => {
@@ -96,40 +87,44 @@ const App: React.FC = () => {
     <div className="min-h-screen flex flex-col max-w-md mx-auto bg-[#efeff4] dark:bg-[#1c1c1d] pb-20 transition-colors duration-300">
       <header className="sticky top-0 z-50 bg-white/80 dark:bg-[#2c2c2e]/80 backdrop-blur-md px-4 py-3 border-b border-[#d1d1d6] dark:border-[#3a3a3c] flex justify-between items-center">
         <h1 className="text-lg font-bold dark:text-white">
-          {currentView === 'home' && 'Мои Задачи'}
+          {currentView === 'home' && 'Задачи'}
           {currentView === 'stats' && 'Статистика'}
           {currentView === 'profile' && 'Профиль'}
-          {currentView === 'create' && 'Новая задача'}
-          {currentView === 'edit' && 'Редактирование'}
+          {currentView === 'create' && 'Новая'}
+          {currentView === 'edit' && 'Правка'}
         </h1>
-        <div className="text-[10px] uppercase font-bold text-[#2481cc]">TMA Hub</div>
+        <div className="text-[10px] uppercase font-black text-[#2481cc] tracking-tighter">TMA HUB</div>
       </header>
 
-      <main className="flex-1 p-4 overflow-y-auto">
+      <main className="flex-1 p-4">
         {currentView === 'home' && (
           <HomeView 
             tasks={filteredTasks} 
             filter={filter} 
             setFilter={setFilter} 
-            onToggleStatus={(id, status) => updateTask(id, { status: status === TaskStatus.COMPLETED ? TaskStatus.IN_WORK : TaskStatus.COMPLETED })}
+            onToggleStatus={async (id, status) => {
+              const newStatus = status === TaskStatus.COMPLETED ? TaskStatus.IN_WORK : TaskStatus.COMPLETED;
+              await api.updateTask(id, { status: newStatus });
+              loadTasks();
+            }}
             onEdit={(id) => { setEditingTaskId(id); setCurrentView('edit'); }}
             onAdd={() => setCurrentView('create')}
           />
         )}
 
         {currentView === 'stats' && <StatsView tasks={tasks} />}
-        
         {currentView === 'profile' && <ProfileView theme={theme} setTheme={setTheme} />}
 
         {(currentView === 'create' || currentView === 'edit') && (
           <TaskFormView 
             task={tasks.find(t => t.id === editingTaskId) || null}
-            onSave={(data) => {
-              if (currentView === 'edit' && editingTaskId) updateTask(editingTaskId, data);
-              else addTask(data);
-            }}
+            onSave={onSaveTask}
             onCancel={() => setCurrentView('home')}
-            onDelete={currentView === 'edit' ? () => { deleteTask(editingTaskId!); setCurrentView('home'); } : undefined}
+            onDelete={currentView === 'edit' ? async () => {
+              if (editingTaskId) await api.deleteTask(editingTaskId);
+              await loadTasks();
+              setCurrentView('home');
+            } : undefined}
           />
         )}
       </main>
