@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import htm from 'htm';
-import { TaskStatus, ViewType } from './types.ts';
+import { TaskStatus } from './types.ts';
 import { api, safeStorage } from './api.ts';
 import HomeView from './views/HomeView.tsx';
 import TaskFormView from './views/TaskFormView.tsx';
@@ -12,14 +12,13 @@ import TabBar from './components/TabBar.tsx';
 const html = htm.bind(React.createElement);
 
 const App = () => {
-  // Fixed Telegram property error by casting window to any
+  // Casting window to any to access Telegram WebApp property to avoid TS errors
   const tg = (window as any).Telegram ? (window as any).Telegram.WebApp : null;
   
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  // Added ViewType to state definition
-  const [currentView, setCurrentView] = useState<ViewType>('home');
-  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState('home');
+  const [editingTaskId, setEditingTaskId] = useState(null);
   const [theme, setTheme] = useState(() => safeStorage.getItem('theme') || 'system');
   const [filter, setFilter] = useState('all');
 
@@ -55,19 +54,20 @@ const App = () => {
     if (tg) tg.setHeaderColor(isDark ? '#2c2c2e' : '#ffffff');
   }, [theme, tg]);
 
-  const onSaveTask = async (data: any) => {
-    if (currentView === 'edit' && editingTaskId) {
+  const onSaveTask = async (data) => {
+    if ((currentView === 'edit' || editingTaskId) && editingTaskId) {
       await api.updateTask(editingTaskId, data);
     } else {
       await api.createTask({ ...data, userId, userName });
     }
+    setEditingTaskId(null);
     await loadTasks();
     setCurrentView('home');
   };
 
   const filteredTasks = useMemo(() => {
     if (filter === 'all') return tasks;
-    return tasks.filter((t: any) => t.status === filter);
+    return tasks.filter((t) => t.status === filter);
   }, [tasks, filter]);
 
   if (loading && tasks.length === 0) {
@@ -96,13 +96,13 @@ const App = () => {
             tasks=${filteredTasks} 
             filter=${filter} 
             setFilter=${setFilter} 
-            onToggleStatus=${async (id: string, status: string) => {
+            onToggleStatus=${async (id, status) => {
               const newStatus = status === TaskStatus.COMPLETED ? TaskStatus.IN_WORK : TaskStatus.COMPLETED;
               await api.updateTask(id, { status: newStatus });
               loadTasks();
             }}
-            onEdit=${(id: string) => { setEditingTaskId(id); setCurrentView('edit'); }}
-            onAdd=${() => setCurrentView('create')}
+            onEdit=${(id) => { setEditingTaskId(id); setCurrentView('edit'); }}
+            onAdd=${() => { setEditingTaskId(null); setCurrentView('create'); }}
           />
         `}
 
@@ -111,11 +111,12 @@ const App = () => {
 
         ${(currentView === 'create' || currentView === 'edit') && html`
           <${TaskFormView} 
-            task=${tasks.find((t: any) => t.id === editingTaskId) || null}
+            task=${editingTaskId ? tasks.find((t) => t.id === editingTaskId) : null}
             onSave=${onSaveTask}
-            onCancel=${() => setCurrentView('home')}
+            onCancel=${() => { setEditingTaskId(null); setCurrentView('home'); }}
             onDelete=${currentView === 'edit' ? async () => {
               if (editingTaskId) await api.deleteTask(editingTaskId);
+              setEditingTaskId(null);
               await loadTasks();
               setCurrentView('home');
             } : undefined}

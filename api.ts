@@ -1,5 +1,4 @@
 
-// Fallback хранилище в оперативной памяти
 const inMemoryDb = {};
 
 export const safeStorage = {
@@ -63,7 +62,8 @@ export const api = {
     } catch (e) {}
 
     const tasks = getLocalTasks();
-    saveLocalTasks([newTask, ...tasks]);
+    const updated = [newTask, ...tasks];
+    saveLocalTasks(updated);
     return newTask;
   },
 
@@ -87,7 +87,6 @@ export const api = {
     throw new Error('Not found');
   },
 
-  // deleteTask implementation added to fix the error in App.tsx
   deleteTask: async (id) => {
     try {
       const response = await fetch(`/api/tasks/${id}`, {
