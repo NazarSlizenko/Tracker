@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Task, TaskStatus, ViewType, ThemeType } from './types.ts';
-import { api } from './api.ts';
+import { api, safeStorage } from './api.ts';
 import HomeView from './views/HomeView.tsx';
 import TaskFormView from './views/TaskFormView.tsx';
 import ProfileView from './views/ProfileView.tsx';
@@ -9,10 +9,13 @@ import StatsView from './views/StatsView.tsx';
 import TabBar from './components/TabBar.tsx';
 
 const App: React.FC = () => {
-  // Получаем доступ к Telegram без declare global для совместимости с Babel Standalone
-  const tg = (window as any).Telegram?.WebApp;
-  const userId = tg?.initDataUnsafe?.user?.id?.toString() || 'dev_user';
-  const userName = tg?.initDataUnsafe?.user?.first_name || 'Алексей';
+  // Используем обращение через квадратные скобки для максимальной совместимости с Babel Standalone
+  const tg = window['Telegram'] ? window['Telegram'].WebApp : null;
+  
+  // Безопасное извлечение данных пользователя
+  const user = tg?.initDataUnsafe?.user;
+  const userId = user?.id ? user.id.toString() : 'dev_user';
+  const userName = user?.first_name || 'Алексей';
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,11 +23,8 @@ const App: React.FC = () => {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   
   const [theme, setTheme] = useState<ThemeType>(() => {
-    try {
-      return (localStorage.getItem('theme') as ThemeType) || 'system';
-    } catch {
-      return 'system';
-    }
+    const saved = safeStorage.getItem('theme');
+    return (saved as ThemeType) || 'system';
   });
   
   const [filter, setFilter] = useState<'all' | TaskStatus>('all');
@@ -51,12 +51,11 @@ const App: React.FC = () => {
   useEffect(() => {
     const root = window.document.documentElement;
     const isDark = theme === 'dark' || (theme === 'system' && (tg?.colorScheme === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches));
+    
     if (isDark) root.classList.add('dark');
     else root.classList.remove('dark');
     
-    try {
-      localStorage.setItem('theme', theme);
-    } catch (e) {}
+    safeStorage.setItem('theme', theme);
     
     if (tg) {
       tg.setHeaderColor(isDark ? '#2c2c2e' : '#ffffff');

@@ -32,6 +32,12 @@
             user-select: none;
             -webkit-tap-highlight-color: transparent;
         }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
     </style>
     <script type="importmap">
 {
@@ -50,7 +56,6 @@
 </head>
 <body class="antialiased overflow-x-hidden">
     <div id="root"></div>
-    <!-- Добавлены data-presets для корректного парсинга TSX -->
     <script type="text/babel" data-presets="react,typescript" data-type="module" src="./index.tsx"></script>
 </body>
 </html>

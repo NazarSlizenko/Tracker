@@ -3,23 +3,32 @@ import { Task, TaskStatus } from './types';
 
 const API_URL = '/api';
 
-// Имитация базы данных в браузере для работы без бэкенда (с защитой от ошибок доступа к хранилищу)
-const getLocalTasks = (): Task[] => {
-  try {
-    const saved = localStorage.getItem('tma_tasks');
-    return saved ? JSON.parse(saved) : [];
-  } catch (e) {
-    console.warn('Storage access denied:', e);
-    return [];
+// Надежная обертка над хранилищем: если localStorage заблокирован, используем память
+const memoryStorage: Record<string, string> = {};
+export const safeStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      return localStorage.getItem(key);
+    } catch (e) {
+      return memoryStorage[key] || null;
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+      memoryStorage[key] = value;
+    }
   }
 };
 
+const getLocalTasks = (): Task[] => {
+  const saved = safeStorage.getItem('tma_tasks');
+  return saved ? JSON.parse(saved) : [];
+};
+
 const saveLocalTasks = (tasks: Task[]) => {
-  try {
-    localStorage.setItem('tma_tasks', JSON.stringify(tasks));
-  } catch (e) {
-    console.warn('Could not save to local storage:', e);
-  }
+  safeStorage.setItem('tma_tasks', JSON.stringify(tasks));
 };
 
 export const api = {
@@ -31,18 +40,12 @@ export const api = {
       saveLocalTasks(data);
       return data;
     } catch (e) {
-      console.warn('API Offline: Используются локальные данные', e);
+      console.warn('API Offline: Using local data');
       return getLocalTasks();
     }
   },
   
   createTask: async (task: Omit<Task, 'id' | 'createdAt'>): Promise<Task> => {
-    const newTask: Task = {
-      ...task,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: Date.now(),
-    };
-
     try {
       const response = await fetch(`${API_URL}/tasks`, {
         method: 'POST',
@@ -50,13 +53,15 @@ export const api = {
         body: JSON.stringify(task)
       });
       if (response.ok) return await response.json();
-    } catch (e) {
-      console.error('API Error (Create): Сохранение локально', e);
-    }
+    } catch (e) {}
 
+    const newTask: Task = {
+      ...task,
+      id: Math.random().toString(36).substr(2, 9),
+      createdAt: Date.now(),
+    };
     const tasks = getLocalTasks();
-    const updatedTasks = [newTask, ...tasks];
-    saveLocalTasks(updatedTasks);
+    saveLocalTasks([newTask, ...tasks]);
     return newTask;
   },
 
@@ -68,9 +73,7 @@ export const api = {
         body: JSON.stringify(updates)
       });
       if (response.ok) return await response.json();
-    } catch (e) {
-      console.error('API Error (Update): Обновление локально', e);
-    }
+    } catch (e) {}
 
     const tasks = getLocalTasks();
     const index = tasks.findIndex(t => t.id === id);
@@ -86,9 +89,7 @@ export const api = {
     try {
       const response = await fetch(`${API_URL}/tasks/${id}`, { method: 'DELETE' });
       if (response.ok) return;
-    } catch (e) {
-      console.error('API Error (Delete): Удаление локально', e);
-    }
+    } catch (e) {}
 
     const tasks = getLocalTasks();
     saveLocalTasks(tasks.filter(t => t.id !== id));
