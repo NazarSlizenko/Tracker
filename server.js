@@ -89,20 +89,19 @@ app.delete('/api/tasks/:id', async (req, res) => {
 
 // --- Раздача статики и SPA Роутинг ---
 
-// ВАЖНО: Определяем пути к папкам
 const distPath = path.join(__dirname, 'dist');
 const publicPath = __dirname;
 
-// Сначала раздаем файлы из dist (если есть) или из корня
+// Раздаем статические файлы
 if (fs.existsSync(distPath)) {
     app.use(express.static(distPath));
 }
 app.use(express.static(publicPath));
 
-// FIX для Express 5: Используем именованный параметр splat для перехвата всех путей
-// Это решает ошибку "Missing parameter name at index X"
-app.get('*', (req, res) => {
-    // Не перехватываем API запросы, которые могли проскочить
+// КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ ДЛЯ EXPRESS 5: 
+// Используем '*any' вместо '*', так как в Node 25/Express 5 одиночная звезда вызывает PathError
+app.get('*any', (req, res) => {
+    // Игнорируем API, чтобы не отдавать HTML на битые ссылки API
     if (req.url.startsWith('/api/')) {
         return res.status(404).json({ error: 'API route not found' });
     }
@@ -117,7 +116,5 @@ app.get('*', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server is running!`);
-    console.log(`📡 Port: ${PORT}`);
-    console.log(`📁 Directory: ${__dirname}`);
+    console.log(`🚀 Сервер запущен на порту ${PORT}`);
 });
