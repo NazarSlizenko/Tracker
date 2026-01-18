@@ -3,14 +3,23 @@ import { Task, TaskStatus } from './types';
 
 const API_URL = '/api';
 
-// Имитация базы данных в браузере для работы без бэкенда
+// Имитация базы данных в браузере для работы без бэкенда (с защитой от ошибок доступа к хранилищу)
 const getLocalTasks = (): Task[] => {
-  const saved = localStorage.getItem('tma_tasks');
-  return saved ? JSON.parse(saved) : [];
+  try {
+    const saved = localStorage.getItem('tma_tasks');
+    return saved ? JSON.parse(saved) : [];
+  } catch (e) {
+    console.warn('Storage access denied:', e);
+    return [];
+  }
 };
 
 const saveLocalTasks = (tasks: Task[]) => {
-  localStorage.setItem('tma_tasks', JSON.stringify(tasks));
+  try {
+    localStorage.setItem('tma_tasks', JSON.stringify(tasks));
+  } catch (e) {
+    console.warn('Could not save to local storage:', e);
+  }
 };
 
 export const api = {
@@ -19,7 +28,6 @@ export const api = {
       const response = await fetch(`${API_URL}/tasks?userId=${userId}`);
       if (!response.ok) throw new Error('Server unreachable');
       const data = await response.json();
-      // Синхронизируем локальное хранилище для оффлайн режима
       saveLocalTasks(data);
       return data;
     } catch (e) {
@@ -46,7 +54,6 @@ export const api = {
       console.error('API Error (Create): Сохранение локально', e);
     }
 
-    // Если сервер упал, сохраняем локально
     const tasks = getLocalTasks();
     const updatedTasks = [newTask, ...tasks];
     saveLocalTasks(updatedTasks);

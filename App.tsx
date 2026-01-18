@@ -8,15 +8,9 @@ import ProfileView from './views/ProfileView.tsx';
 import StatsView from './views/StatsView.tsx';
 import TabBar from './components/TabBar.tsx';
 
-// Доступ к Telegram SDK
-declare global {
-  interface Window {
-    Telegram: any;
-  }
-}
-
 const App: React.FC = () => {
-  const tg = window.Telegram?.WebApp;
+  // Получаем доступ к Telegram без declare global для совместимости с Babel Standalone
+  const tg = (window as any).Telegram?.WebApp;
   const userId = tg?.initDataUnsafe?.user?.id?.toString() || 'dev_user';
   const userName = tg?.initDataUnsafe?.user?.first_name || 'Алексей';
 
@@ -24,10 +18,17 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState<ViewType>('home');
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  const [theme, setTheme] = useState<ThemeType>(() => (localStorage.getItem('theme') as ThemeType) || 'system');
+  
+  const [theme, setTheme] = useState<ThemeType>(() => {
+    try {
+      return (localStorage.getItem('theme') as ThemeType) || 'system';
+    } catch {
+      return 'system';
+    }
+  });
+  
   const [filter, setFilter] = useState<'all' | TaskStatus>('all');
 
-  // Инициализация Telegram
   useEffect(() => {
     if (tg) {
       tg.ready();
@@ -52,7 +53,10 @@ const App: React.FC = () => {
     const isDark = theme === 'dark' || (theme === 'system' && (tg?.colorScheme === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches));
     if (isDark) root.classList.add('dark');
     else root.classList.remove('dark');
-    localStorage.setItem('theme', theme);
+    
+    try {
+      localStorage.setItem('theme', theme);
+    } catch (e) {}
     
     if (tg) {
       tg.setHeaderColor(isDark ? '#2c2c2e' : '#ffffff');

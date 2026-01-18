@@ -8,7 +8,8 @@ interface ProfileViewProps {
 }
 
 const ProfileView: React.FC<ProfileViewProps> = ({ theme, setTheme }) => {
-  const tg = window.Telegram?.WebApp;
+  // Use type casting to access Telegram WebApp API on window object
+  const tg = (window as any).Telegram?.WebApp;
   const user = tg?.initDataUnsafe?.user || {
     first_name: 'Пользователь',
     username: 'unknown',
@@ -29,7 +30,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ theme, setTheme }) => {
             <div className="absolute bottom-4 right-0 w-6 h-6 bg-green-500 border-4 border-white dark:border-[#2c2c2e] rounded-full"></div>
         </div>
         <h2 className="text-xl font-bold dark:text-white">{user.first_name} {user.last_name || ''}</h2>
-        <p className="text-[#8e8e93] text-sm">{user.username ? `@${user.username}` : 'ID: ' + user.id}</p>
+        {/* Added fallback for user.id to handle cases where Telegram API is not available */}
+        <p className="text-[#8e8e93] text-sm">{user.username ? `@${user.username}` : 'ID: ' + (user.id || 'unknown')}</p>
       </div>
 
       <div className="bg-white dark:bg-[#2c2c2e] rounded-2xl overflow-hidden border border-black/5 dark:border-white/5">

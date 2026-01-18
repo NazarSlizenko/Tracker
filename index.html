@@ -7,7 +7,6 @@
     <title>TMA Task Tracker</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Добавляем Babel для поддержки TSX прямо в браузере -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         :root {
@@ -33,22 +32,8 @@
             user-select: none;
             -webkit-tap-highlight-color: transparent;
         }
-
-        .safe-area-bottom {
-            padding-bottom: env(safe-area-inset-bottom);
-        }
-
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 4px;
-        }
-        
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
     </style>
-<script type="importmap">
+    <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@19.0.0",
@@ -65,7 +50,7 @@
 </head>
 <body class="antialiased overflow-x-hidden">
     <div id="root"></div>
-    <!-- Указываем тип text/babel и data-type="module" для корректной работы Babel -->
-    <script type="text/babel" data-type="module" src="./index.tsx"></script>
+    <!-- Добавлены data-presets для корректного парсинга TSX -->
+    <script type="text/babel" data-presets="react,typescript" data-type="module" src="./index.tsx"></script>
 </body>
 </html>
