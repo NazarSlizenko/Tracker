@@ -1,0 +1,5 @@
+{
+  "name": "TMA Task Hub",
+  "description": "A feature-rich Telegram Mini App task tracker with native-like UI, CRUD operations, and administrative moderation features.",
+  "requestFramePermissions": []
+}
